@@ -22,7 +22,11 @@ module.exports = {
       {
         test: /\.css$/,
         use: [MiniCssExtractPlugin.loader, "css-loader"]
-      }
+			},
+			{
+				test: /\.md$/,
+				use: 'raw-loader'
+			}
     ]
   },
   plugins: [
