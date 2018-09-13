@@ -1,20 +1,20 @@
 # Gatsby a static Progressive Web Apps Generator
 
-This folder is create by command `gatsby new <project name>`. and install the a couple more dependencies like `gatsby-source-filesystem` and `gatsby-transformer-remark`. `gatsby-source-filesystem` create **File** nodes from the file system, whereas `gatsby-transformer-remark` will transform any `Markdown(.md)` files into **MarkdownRemark** nodes, making it easier to query them.
+This folder is created by the command `gatsby new <project name>`, and installed a couple more dependencies like `gatsby-source-filesystem` and `gatsby-transformer-remark`. Here `gatsby-source-filesystem` create **File** nodes from the file system, whereas `gatsby-transformer-remark` will transform any `Markdown(.md)` files into **MarkdownRemark** nodes, making it easier to query them with `GraphQL`.
 
 `gatsby-config.js` file is a webpack configure liking file.
 
 # Setup your site
 
-## Set index blog
-Go to `src/pages` folder and create a directory name as `My Blogs #1` to store you `markdown` files. And create a `index.md` write like:
+## Create you first posts
+Go to `src/pages` folder and create a directory name as `My Blogs #1` to store you `markdown` files. And create a `webpack.md` write like:
 ```bash
 ---
-path: '/my-blog-path'
+path: '/webpack-tutorial'
 date: '2018-05-23T12:34:00+00:00'
-title: "My first Blog"
-tags: ['The Flash', "Batman", "Superman", "Wally West", "Wonder Woman", "DC"]
-excerpt: "It all begins here. Do not skip to the last page. Do not let a friend or message board ruin this comic for you. The future (and past) of the DC Universe starts here. Don’t say I didn’t warn you!"
+title: "Webpack 4 tutorial"
+tags: ['webpack', 'full-stock']
+excerpt: "Webpack 4 has a massive performance improvement as zero configure module bundler. This tutorial is a hands on session for configure a webpack to you project."
 ---
 (Start writing your blog post from here)
 ```
