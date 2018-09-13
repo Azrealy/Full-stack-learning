@@ -16,6 +16,17 @@ const IndexPage = ({data}) => {
             </h2>
             <p>{frontmatter.date}</p>
             <p>{frontmatter.excerpt}</p>
+            <ul>
+              {post.frontmatter.tags.map (tag => {
+                return (
+                  <li>
+                    <Link to={`/tags/${tag}`}>
+                      {tag}
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
           </div>
         );
       })}
