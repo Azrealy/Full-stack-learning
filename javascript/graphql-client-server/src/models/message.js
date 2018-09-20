@@ -8,6 +8,9 @@ const message = (sequelize, DataTypes) => {
             }
         },
       },
+      createdAt: {
+        type: DataTypes.STRING,
+      }
     });
   
     Message.associate = models => {
