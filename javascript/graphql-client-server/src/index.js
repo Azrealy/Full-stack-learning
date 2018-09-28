@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import express from 'express';
 import jwt from 'jsonwebtoken';
 import { ApolloServer, AuthenticationError } from 'apollo-server-express';
@@ -47,7 +48,6 @@ const server = new ApolloServer({
       }
       if (req) {
         const me = await getMe(req)
-
         return {
             models,
             me: me,
@@ -66,13 +66,16 @@ const httpServer = http.createServer(app)
 server.installSubscriptionHandlers(httpServer)
 
 const eraseDatabaseOnSync = true;
-sequelize.sync({ force: eraseDatabaseOnSync }).then(async () =>{
-    if (eraseDatabaseOnSync) {
-        createUsersWithMessages(new Date());
-      }
-    httpServer.listen({ port: 8000 }, () => {
-    console.log('Apollo Server on http://localhost:8000/graphql');
-    })
+
+const isTest = !!process.env.TEST_DATABASE
+
+sequelize.sync({ force: isTest }).then(async () =>{
+  if (isTest) {
+      createUsersWithMessages(new Date());
+    }
+  httpServer.listen({ port: 8000 }, () => {
+  console.log('Apollo Server on http://localhost:8000/graphql');
+  })
 });
 const createUsersWithMessages = async (date) => {
     await models.User.create(

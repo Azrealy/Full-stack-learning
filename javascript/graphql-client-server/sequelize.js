@@ -1,11 +1,12 @@
+require('dotenv/config')
 const Sequelize = require('sequelize');
-const sequelize = new Sequelize('database', 'username', 'password', {
+const sequelize = new Sequelize(
+    process.env.DATABASE,
+    process.env.DATABASE_USER,
+    process.env.DATABASE_PASSWORD,
+    {
     // sqlite! now!
-    dialect: 'sqlite',
-  
-    // the storage engine for sqlite
-    // - default ':memory:'
-    storage: '/tmp/database.sqlite'
+    dialect: 'postgres',
   })
 sequelize.authenticate().then(()=> {
     console.log('connection to postgre sucess')  
