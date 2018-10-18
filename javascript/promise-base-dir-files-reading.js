@@ -16,7 +16,7 @@ const readDirAsync = (dirname) => {
 const readFilesAsync = (dirname, files) => {
     return new Promise(async (resolve, reject) => {
         const filesdata = await Promise.all(
-            // Passing a array of Promise, and return the 
+            // Pass a array of Promise, and return the 
             // the array of those Promise value. 
             files.map((file) => {
             return new Promise((resolve, reject) => {
