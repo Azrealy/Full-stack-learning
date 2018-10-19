@@ -2,10 +2,24 @@
 
 import socket
 from selectors import DefaultSelector, EVENT_WRITE, EVENT_READ
+import os
+import re
 
 selector = DefaultSelector()
 stopped = False
 urls_todo = {'/', '/1', '/2', '/3', '/4', '/5', '/6', '/7', '/8', '/9'}
+
+proxy = os.environ.get("HTTP_PROXY")
+
+if proxy:
+    m = re.search(r'^http://(.*)\/$', proxy)
+    host = m.group(1).split(":")[0]
+    port = int(m.group(1).split(":")[1])
+
+else:
+    host = "example.org"
+    port = 80
+
 
 class Crawler:
     def __init__(self, url):
@@ -17,15 +31,11 @@ class Crawler:
         self.sock = socket.socket()
         print(self.sock)
         try:
-            host = "<proxy host>"
-            port = 8080
             # Set connect to proxy.
             self.sock.connect((host, port))
         except BlockingIOError:
             pass
         fn = self.sock.fileno()
-        print(fn)
-        print(EVENT_WRITE)
         selector.register(fn, EVENT_WRITE, self.connected)
 
     def connected(self, key, mask):

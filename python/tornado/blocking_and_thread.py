@@ -1,14 +1,24 @@
 # -*- coding: utf-8 -*-
-
+import os
+import re
 import socket
 from concurrent import futures
+
+proxy = os.environ.get("HTTP_PROXY")
+
+if proxy:
+    m = re.search(r'^http://(.*)\/$', proxy)
+    host = m.group(1).split(":")[0]
+    port = int(m.group(1).split(":")[1])
+
+else:
+    host = "example.org"
+    port = 80
 
 
 def blocking_way():
     sock = socket.socket()
     # blocking
-    host = "<proxy host>"
-    port = 8080
     # Set connect to proxy.
     sock.connect((host, port))
     request = 'GET / HTTP/1.0\r\nHost: example.com\r\n\r\n'
