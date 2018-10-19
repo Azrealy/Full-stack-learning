@@ -139,3 +139,8 @@ while 1:
 s.close()
 ```
 The above connection handler takes some input from the client and replies back with the same.
+
+# Multi-Connection Client and Server
+
+As above introduce a thread approach to handle multiply socket connection, instead of thread here give introduce event based `select` operation server base and client socket programming.
+
