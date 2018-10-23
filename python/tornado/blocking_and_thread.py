@@ -12,7 +12,7 @@ if proxy:
     port = int(m.group(1).split(":")[1])
 
 else:
-    host = "example.org"
+    host = "example.com"
     port = 80
 
 
@@ -41,21 +41,19 @@ def thread_way():
 def process_way():
     workers = 10
     with futures.ProcessPoolExecutor(workers) as executor:
-        thread_futures = {executor.submit(blocking_way) for i in range(10)}
-    return len([future.result() for future in thread_futures])
-
-
+        process_futures = {executor.submit(blocking_way) for i in range(10)}
+    return len([future.result() for future in process_futures])
 
 def sync_way():
     res = []
     for i in range(10):
-        res.append(thread_way())
+        res.append(blocking_way())
     return len(res)
 
 
 def main():
     start = time.time()
-    print(sync_way())
+    print(thread_way())
     print(time.time() - start)
 
 

@@ -138,7 +138,7 @@ def sync_way():
         res.append(thread_way())
     return len(res)
 ```
-Result: The blocking way of fetching 10 pages will cost 1.81 seconds.
+Result: The blocking way of fetching 10 pages will cost 2.31 seconds.
 
 We know that creating a network connection is not determine by the client, but by the network transportation capability and processing speed of the server. Also we unpredictable to when the response will be received from the server.
 
@@ -153,15 +153,82 @@ The first solution of improve it is to open 10 identical programs at the some ti
 import futures
 def process_way():
     workers = 10
-    # open some processors which depended on your computer  core numbers.
     with futures.ProcessPoolExecutor(workers) as executor:
+        process_futures = {executor.submit(blocking_way) for i in range(10)}
+    return len([future.result() for future in process_futures])
+```
+Result: The multi-process way of fetching 10 pages will cost 0.26 seconds.
+
+The improvement is immediately effected. But there are still have some problems. The overall time-consuming has not been reduced to one-tenth of the original one, but which is nearly one-ninth of it, so where does the time spent? The answer is process switching overhead.
+
+The CPU switches from one process to another, it will first to save the old process states to the register, then restore those states from register into the new process. For the CPU, the states switching is wasting time. **When the number of processes is greater than the number of CPU cores, process switching is necessarily required.**
+
+In addition to switching overhead, the multi-process also have the other drawback. If the number of processes is larger, the system will be unstable, and the available memory resources will often be insufficient.
+
+## Improvement: Multi-threads
+
+Since thread is a lighter data structure than a process, and one process can be accommodated by multiple threads, the solution of multi-threads is from here. 
+```python
+def thread_way():
+    workers = 10 
+    with futures.ThreadPoolExecutor(workers) as executor:
         thread_futures = {executor.submit(blocking_way) for i in range(10)}
     return len([future.result() for future in thread_futures])
 ```
-The improvement is immediately effected. But there are still have some problems. The overall time-consuming has not been reduced to one-tenth of the original one, but which is one-sixth, so where does the time spent? The answer is process switching overhead.
+Result: The multi-threads way of fetching 10 pages will cost 0.24 seconds.
 
-**When the number of processes is greater than the number of CPU cores, process switching is necessarily required.**
+This result is much close to the one-tenth consuming-time of the original one, and also less consuming-time than the multi-process one. From the result of runtime, multi-threads seems to have solve the problem of large switching overhead. And it can also support a large scale of tasks from hundred to thousands.
 
+However, multi-threads still have some problems, especially in Python. First of all, as the existence of **GIL** (FYI, [introduce what is the python GIL](https://realpython.com/python-gil/)), multi-threads can not take advantage of multi-core CPU. In Python process, **only one thread is allowed to run**. But in our socket fetching data case, the blocking methods `sock.connect()` and `sock.recv()` will release the GIL from current thread, and which will allowed other threads have an opportunity to processing code.
 
-## Improve: Multi-threaded
+> Tip: `time.sleep` in python is blocking, but in multi-thread programming, `time.sleep` does not block other threads.
+
+On the other hand, all multi-thread have the some problem of scheduling the the priority of execution. What may let us confusing like which thread is running at the next moment.
+
+## Non-blocking mode
+
+Finally, we came to the non-blocking solution. Following I will introduce the most primitive way of non-blocking solution.
+```python
+def nonblocking_way():
+    sock = socket.socket()
+    # setup to sock.connect and sock.recv become no blocking method
+    sock.setblocking(False)
+    try:
+        sock.connect(('example.com', 80))
+    except BlockingIOError:
+        # no blocking sock.connect can also arise Error
+        pass
+    request = 'GET / HTTP/1.0\r\nHost: example.com\r\n\r\n'
+    data = request.encode('ascii')
+    # Here we take a while loop to sending data,
+    # and the sending will success until the error not arise.
+    while True:
+        try:
+            sock.send(data)
+            break
+        except OSError:
+            pass
+
+    response = b''
+    # Same approach like above, take a while loop to receive data,
+    # and data will be received completed until error not arise.
+    while True:
+        try:
+            chunk = sock.recv(4096)
+            while chunk:
+                response += chunk
+                chunk = sock.recv(4096)
+            break
+        except OSError:
+            pass
+
+    return response
+```
+Result: The basic non-blocking way of fetching 10 pages will cost 2.35 seconds.
+
+This approach doesn't improve the data fetching process, and the consuming-time is equivalent to synchronous blocking one and also even a little worse than it.
+
+In this case `sock.connect()` and `sock.recv()` is no longer block in the main program, but it did not take advantage by this free CPU to do other meaningful things, like above comment said the process is try to read and write socket in a while loop. (determine the status of non-stop non-blocking calls whether is ready). And worse more you have to deal with negligible exceptions which is not much readable at all. It is also not possible to process multiple sockets at the same time.
+
+And the fetching is still running in order, so the overall execution time is almost equivalent to synchronous blocking.
 
