@@ -83,26 +83,22 @@ class Crawler:
                     stopped = True
                 break
 
-
 class Task:
-    def __init__(self, coro):
-        self.coro = coro
+    def __init__(self, result):
+        self.result = result
         f = Future()
         f.set_result(None)
         self.step(f)
 
     def step(self, future):
         try:
-            # send会进入到coro执行, 即fetch, 直到下次yield
-            # next_future 为yield返回的对象
-            next_future = self.coro.send(future.result)
+            next_future = self.result.send(future.result)
         except StopIteration:
             return
         next_future.add_done_callback(self.step)
 
 def loop():
     while not stopped:
-        # 阻塞, 直到一个事件发生
         events = selector.select()
         for event_key, event_mask in events:
             callback = event_key.data

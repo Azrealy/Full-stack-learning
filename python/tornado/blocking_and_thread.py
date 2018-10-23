@@ -38,11 +38,18 @@ def thread_way():
         thread_futures = {executor.submit(blocking_way) for i in range(10)}
     return len([future.result() for future in thread_futures])
 
+def process_way():
+    workers = 10
+    with futures.ProcessPoolExecutor(workers) as executor:
+        thread_futures = {executor.submit(blocking_way) for i in range(10)}
+    return len([future.result() for future in thread_futures])
+
+
 
 def sync_way():
     res = []
     for i in range(10):
-        res.append(blocking_way())
+        res.append(thread_way())
     return len(res)
 
 
