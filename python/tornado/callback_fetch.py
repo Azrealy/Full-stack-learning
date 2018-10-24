@@ -17,7 +17,7 @@ if proxy:
     port = int(m.group(1).split(":")[1])
 
 else:
-    host = "example.org"
+    host = "example.com"
     port = 80
 
 
@@ -29,7 +29,6 @@ class Crawler:
 
     def fetch(self):
         self.sock = socket.socket()
-        print(self.sock)
         try:
             # Set connect to proxy.
             self.sock.connect((host, port))
@@ -39,7 +38,6 @@ class Crawler:
         selector.register(fn, EVENT_WRITE, self.connected)
 
     def connected(self, key, mask):
-        print(key)
         selector.unregister(key.fd)
         get = 'GET http://example.com{0} HTTP/1.0\r\nHost: example.com\r\n\r\n'.format(self.url)
         self.sock.send(get.encode('ascii'))
@@ -60,7 +58,6 @@ def loop():
     while not stopped:
         events = selector.select()
         for event_key, event_mask in events:
-            print(event_key.data)
             callback = event_key.data
             callback(event_key, event_mask)
 

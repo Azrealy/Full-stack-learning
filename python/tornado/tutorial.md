@@ -232,3 +232,158 @@ In this case `sock.connect()` and `sock.recv()` is no longer block in the main p
 
 And the fetching is still running in order, so the overall execution time is almost equivalent to synchronous blocking.
 
+## Non-blocking improvements
+
+### epoll
+
+If the OS level can help us to check the **non-blocking while loop** like above. Our application can be free to do other things without to worry about the task waiting and judgement.
+
+Here we introduce the `select` system module. Which **encapsulates the I/O states (like socket.connect or file read/write) into a event** by the OS, such as **readable event** and **writable event**, and allowing application to receive those events notifications. In the application, `select` module role as a **monitoring function** which help to store the **file descriptor** and **callback** function into the register. When the state of file descriptor changes, `select` will call the callback function from register.(FYI, [more example of `select` module](https://pymotw.com/2/select/))
+
+There are some familiar modules exist, like, `epoll`, `poll` or `kqueue` which is doing the same things like `select` does but more efficient. And `epoll` is the ubiquity module at the modern Linux system.
+
+### Callback
+
+The **callback** function help OS to know what to do the next after monitored the **I/O state** has changed.
+
+When the `epoll` application listens to the `socket` state, we have to tell `epoll` that: 
+
+* If the `socket` status changed to a **writable data**, which means the socket connection is established successfully, then call a callback function to send the HTTP request.
+
+* If the `socket` status changed to a **readable data**, which means the socket has received a response, then call a callback function to handle the response.
+
+So using the `epoll` module combined with **callback** function the improved solution of fetching pages can look like following:
+```python
+import socket
+from selectors import DefaultSelector, EVENT_WRITE, EVENT_READ
+selector = DefaultSelector()
+stopped = False
+urls_todo = {'/', '/1', '/2', '/3', '/4', '/5', '/6', '/7', '/8', '/9'}
+class Crawler:
+    def __init__(self, url):
+        self.url = url
+        self.sock = None
+        self.response = b''
+
+    def fetch(self):
+        self.sock = socket.socket()
+        try:
+            # Set connect to proxy or the target server host.
+            self.sock.connect((host, port))
+        except BlockingIOError:
+            pass
+        fn = self.sock.fileno()
+        selector.register(fn, EVENT_WRITE, self.connected)
+
+    def connected(self, key, mask):
+        selector.unregister(key.fd)
+        get = 'GET http://example.com{0} HTTP/1.0\r\nHost: example.com\r\n\r\n'.format(self.url)
+        self.sock.send(get.encode('ascii'))
+        selector.register(key.fd, EVENT_READ, self.read_response)
+
+    def read_response(self, key, mask):
+        global stopped
+        chunk = self.sock.recv(4096)
+        if chunk:
+            self.response += chunk
+        else:
+            selector.unregister(key.fd)
+            urls_todo.remove(self.url)
+            if not urls_todo:
+                stopped = True
+```
+The little different from the previous cases is using the relative URL path to download 10 different pages. And compare to the basic non-blocking mode, here we eliminated the **while loop** of checking the connection establish and data receive.
+
+The `selectors` modules are provided by the Python standard library `select`, `poll` and `epoll` what are encapsulated in the underlying. (FYI, [High-level I/O multiplexing module `selectors`](https://docs.python.org/3/library/selectors.html)). And at above we setup the default instance by `DefaultSelector` class.
+
+Then the `fetch()` and `connected()` methods register the callback function with writable event `EVENT_WRITE` and readable event `EVENT_READ`. The blocking operation is given to the OS to wait and notify. However, if we want to fetch 10 different pages, we have to create 10 `Crawler` instance, and 20 events will occur. How `selector` to get the current occurred event ? How to get the corresponding callback function to execute? The answer is **event loop**
+
+### Event Loop
+
+In order to solve the above problem, we can easily come up with the idea of writing a loop, and access the `selector` module, waiting for it to tell us which event is currently happening, and which callback is corresponded. **This loop of waiting for event notifications is called as event loop.**
+```python
+def loop():
+    while not stopped:
+        # here is a blocking call when no events to handle.
+        events = selector.select()
+        for event_key, event_mask in events:
+            callback = event_key.data
+            callback(event_key, event_mask)
+```
+In this code snippet of **event loop**, we use the global variables to control it stops. When the `url_todo` list running out, the loop will be stopped.
+
+The important thing is like the comments said, `selector.select()` is a blocking call. What will waiting for the event occurred, as the `sock.connect()` and `sock.recv()` are taking time to change event data, so it will be blocking at the `selector.select()` point for waiting event happen. In the case of fetching one page, the cost time is the same as the blocking approach.
+
+Therefore the `selector` mechanism is designed to solve a large number of concurrent tasks. When there are a large number of non-blocking calls in the system and generate events at any time, the `selector` mechanism can exert its maximum power.
+
+Here create 10 download tasks and start event loops:
+```python
+for url in urls_todo:
+    crawler = Crawler(url)
+    crawler.fetch()
+loop()
+```
+Result: The selector way of fetching 10 pages will cost 0.24 seconds. 
+
+In a single-threads with the `event loop` and `callback` to fetch 10 pages has the some time-consuming to compare with the multi-threads. And this is **asynchronous programming**.
+
+The above code is executed asynchronously:
+
+1. Create a `Crawler` instance.
+2. Call the `fetch()` method, create a `socket` connection and register a writable event on `selector`.
+3. `fetch()` method is no blocking operation inside now, and the method returns immediately.
+4. Overlap the above 3 steps to add 10 different download page task to the `selector` register.
+5. Start the event loop, enter the first round of loops, it will block at the `selector.select()`.
+6. When a download task `EVENT_WRITE` is triggered, the `connected` method is called and executed, which will unregistered the `sock.connect()` operation and register the `sock.send()` operation to the `selector` for event loop to listen the `EVENT_READ` event. Then the first round of event loop ends.
+7. From the second round of the event loop on, the event could be tracked as a readable or writable event. If the `EVENT_WRITE` is triggered the execution will be like the above step, callback the `connected` method to register `EVENT_READ` event to the loop. If the `EVENT_READ` is triggered, the method `read_response` will be called and receive the data from the response, remove the url from the `urls_todo`.
+8. Event loop will stop when the url in `urls_todo` running out, and all pages have been download.
+
+### Summary
+
+Through the study of this section, we should realize that no matter what programming language are, the **event loop + callback** mode of asynchronous programming can not escape, it may be not use `epoll`, it may be not use a while loop. But we don't see any `callback` function in `tornado`, the reason of that will be introduced at the next section with the protagonist `coroutine`.
+
+# The road to optimization of asynchronous I/O
+
+This section will introduce how the `coroutine` to optimise the asynchronous programming. 
+
+## The pain of callback.
+
+In the production level, the complexity of handle the `event loop + callback` will be increased greatly. Consider the following questions:
+* What if the callback function does not work properly?
+* What if there many layers should nested inside the callback?
+* If there are multiple layers nested, what happens if one of the layer callback fails?
+* What if there is a data that needs to be processed by each callback?
+...
+
+Behind these issues mentioned above, there also have some **drawbacks** of the callback model programming model:
+
+* Poor readability when there are too many callback layers:
+```python
+def callback_a():
+    def callback_b():
+        def callback_c():
+            return callback_d()
+        return callback_c
+    return callback_b
+```
+* Destroying the code structure.
+In the synchronization code, the operation runs from top to bottom.
+```python
+first_task()
+second_task()
+```
+but in the asynchronous programming, it will be write like:
+```python
+first_task(second_task(third_task(forth_task(..))))
+```
+The above is actually a callback hell style. 
+
+* Sharing state management difficulties
+
+In the above **event loop + callback** example, we use the OOP programming style, which help us to store the `sock` object state to `self` when the `Crawler` object instantiated. If not to using the OOP programming style, you need to pass the state to each callback.
+
+As the shortcoming mentioned above, the solution of `coroutine` was born.
+
+## Core issues
+
+
