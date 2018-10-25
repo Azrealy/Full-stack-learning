@@ -386,4 +386,112 @@ As the shortcoming mentioned above, the solution of `coroutine` was born.
 
 ## Core issues
 
+Through the previous learning, we have understand the biggest difficulty of **asynchronous programming**:
+* When is the asynchronous task completed?
+* What do you want the asynchronous callback to do?
+
+We can use the **event loop + callback** to solve this, but that make our application more complex. So how the `tornado` and python build-in library `asynio` avoid the callback and make the asynchronous programming much simpler.
+
+The answer is make the program to know what it have done, what it is doing now, and what it going to do in the future. **In other words, the program has to know the current state, and keep the states between different callbacks.**
+
+So the idea is come up with **tasks must be notified its state to each other, each task has its own status**, that is why the `coroutine` come from, as each `coroutine` have its own state and know what the state come in. So what the way of us to improve the **event loop + callback** asynchronous programming is to create a mechanism that coroutines can notify each other states.
+
+## Coroutine
+
+[Coroutine](https://en.wikipedia.org/wiki/Coroutine) are computer-program components that generalize for non-preemptive multitasking, by allowing multiple entry points for suspending and resuming execution at certain locations.
+Example of coroutine:
+```python
+def coroutine():
+    while True:
+        receive = yield
+        print("Receive: ", receive)
+
+coro = coroutine()
+next(coro)
+coro.send("hello")
+coro.send("world")
+
+"""
+Output:
+Receive: hello
+Receive: world
+"""
+```
+This `coroutine()` is created based by **Generator**, it will suspend at every `yield` point and resuming execution when `send()` method run. 
+
+Next, we are going to refactoring the Crawler code.
+
+### Create `Future` Object
+
+Not use the `callback`, how do we know the result of asynchronous calls? That is why we design the `Future` object, it will set the result when asynchronous call is executed.
+```python
+class Future:
+    def __init__(self):
+        self.result = None
+        self._callbacks = []
+
+    def add_done_callback(self, fn):
+        self._callbacks.append(fn)
+
+    def set_result(self, result):
+        self.result = result
+        for fn in self._callbacks:
+            fn(self)
+```
+In the `Future` object, the `result` attribute will stores the future execution results. The method `set_result()` is use to setup the `result` attribute, and execute the callback function which append from `add_done_callback()` method.
+
+As we have the `Future` object, we can use it to refactoring our `Crawler` Object.
+```python
+class Crawler:
+    def __init__(self, url):
+        self.url = url
+        self.response = b''
+
+    def fetch(self):
+        sock = socket.socket()
+        sock.setblocking(False)
+        try:
+            sock.connect((host, port))
+        except BlockingIOError:
+            pass
+        f = Future()
+
+        def on_connected():
+            f.set_result(None)
+
+        selector.register(sock.fileno(), EVENT_WRITE, on_connected)
+        yield f
+        selector.unregister(sock.fileno())
+        get = 'GET example.com{0} HTTP/1.0\r\nHost: example.com\r\n\r\n'.format(self.url)
+        sock.send(get.encode('ascii'))
+
+        global stopped
+        while True:
+            f = Future()
+
+            def on_readable():
+                try:
+                    f.set_result(sock.recv(1024))
+                except SocketError as e:
+                    if e.errno != errno.ECONNRESET:
+                        raise # Not error we are looking for
+                    pass # Handle error here.
+
+                
+
+            selector.register(sock.fileno(), EVENT_READ, on_readable)
+            chunk = yield f
+            selector.unregister(sock.fileno())
+            if chunk:
+                self.response += chunk
+            else:
+                urls_todo.remove(self.url)
+                if not urls_todo:
+                    stopped = True
+                break
+```
+
+
+
+
 
