@@ -440,7 +440,7 @@ class Future:
 ```
 In the `Future` object, the `result` attribute will stores the future execution results. The method `set_result()` is use to setup the `result` attribute, and execute the callback function which append from `add_done_callback()` method.
 
-As we have the `Future` object, we can use it to refactoring our `Crawler` Object.
+Refactoring our `Crawler` Object use the `Future` Object.
 ```python
 class Crawler:
     def __init__(self, url):
@@ -490,8 +490,183 @@ class Crawler:
                     stopped = True
                 break
 ```
+This time, we have an `yield` expression in `fetch()` method, that makes it be a generator. We know that the generator needs to call `next()` or `send(None)` to start it execution and pause it to the `yield` point. Here we create a pending future, then yield it to pause `fetch()` until the socket is ready. The callback function which register in the `event loop`, use to resolve this future.
 
+### `Task` Object
+But when the future resolves, what resumes the generator? We need a coroutine driver. Let us call it "task":
+```python
+class Task:
+    def __init__(self, coroutine):
+        self.coroutine = coroutine
+        f = Future()
+        f.set_result(None)
+        self.step(f)
 
+    def step(self, future):
+        try:
+            next_future = self.coroutine.send(future.result)
+        except StopIteration:
+            return
 
+        next_future.add_done_callback(self.step)
+```
+`Task` encapsulate the `coroutine` object, which use to pass the `fetch()` generator method at here, and execute the `step()` method to send the **initial future result None** to the `self.coroutine.send()` function. That will help the `fetch()` method to initial execution first. Once `send()` is done, use the `next_future` to add the `step()` callback function. For trigger the next `step()` method to execute, pass it to `add_done_callback()` method. Then every time the `set_result()` be called in the `fetch()` that will trigger the next `step()` method to execute. That means the `fetch()` will be resumed to next `yield` point until the `step()` catch the `StopIteration` exception. 
 
+### The Event Loop
 
+This time the `event loop` will not more care about the `event_key` and `event_mask` parameters. It have become to a simple event driver which will listen to the event happening and call the callback. 
+```python
+def loop():
+    while not stopped:
+        events = selector.select()
+        for event_key, event_mask in events:
+            callback = event_key.data
+            callback()
+```
+Result: The coroutine way of fetching 10 pages will cost 0.25 seconds. 
+
+From the result, time is very close to the callback way of `selector`. But the `fetch()` code in the `Crawler` is still not readable, and in our `fetch()` method, it will go to make socket connection, send request and receive the response. It is not obey the **[Single responsibility principle](https://en.wikipedia.org/wiki/Single_responsibility_principle)** which means every `module` or `class` should have responsibility over a single part of the functionality. That why we will try to separate those functionality into different method.
+
+## Factoring Coroutines With `yield from`
+
+### `yield from` from Python 3.4
+Now Python 3's has the `yield from` takes the stage. It lets one generator delegate to another.
+
+To see how, let us return to our simple generator example:
+```python
+def gen_fn():
+    result = yield 1
+    print('result of yield: {}'.format(result))
+    result2 = yield 2
+    print('result of 2nd yield: {}'.format(result2))
+    return 'done'
+```
+To call this generator from another generator, delegate to it with `yield from`:
+```python
+# Generator function:
+def caller_fn():
+     gen = gen_fn()
+     rv = yield from gen
+     print('return value of yield-from: {}'
+           .format(rv))
+```
+This time `yield from gen` is the same with `yield subgen for subgen in gen`. The `yield from` statement is a frictionless channel, through which values flow in and out of gen until gen completes. Like the following code:
+```python
+def gen():
+    yield from subgen()
+
+def subgen():
+    while True:
+        x = yield
+        yield x+1
+
+def main():
+    g = gen()
+    # pause subgen() to the first yield point 
+    next(g)
+    # look like send value to the gen but is going to subgen
+    interval = g.send(1)
+    # this will return 2
+    print(interval)
+    # throw StopIteration to the subgen.
+    g.throw(StopIteration)
+```
+
+### Refactoring `Crawler` object
+
+Use `yield from` express refactor the `fetch()` get socket connection, send request, read response into different sub-coroutine. We write a `read` coroutine to receive one chunk:
+```python
+def read(sock):
+    f = Future()
+
+    def on_readable():
+        f.set_result(sock.recv(4096))
+
+    selector.register(sock.fileno(), EVENT_READ, on_readable)
+    chunk = yield f  # Read one chunk.
+    selector.unregister(sock.fileno())
+    return chunk   
+```
+We build on read with a `read_all` coroutine that receives a whole message:
+```python
+def read_all(sock):
+    response = []
+    # Read whole response.
+    chunk = yield from read(sock)
+    while chunk:
+        response.append(chunk)
+        chunk = yield from read(sock)
+
+    return b''.join(response)
+```
+At this moment, if we get rid of the `yield from` statement, it will look like the conventional functions doing blocking I/O. But in fact, `read` and `read_all` is the coroutines and the `read` is the sub-coroutine of `read_all`. While `read_all` is paused, that means the `read` is pause at the `yield` point, and the `event loop` does other work and awaits other I/O events. `read_all` is resumed with the result of `read` on the next loop tick once its event is ready.
+
+At the stack's root, `fetch` calls `read_all`:
+```python
+class Crawler:
+    def fetch(self):
+         # ... connection logic from above, then:
+        sock.send(request.encode('ascii'))
+        self.response = yield from read_all(sock)
+```
+When `read` yields a future, the task receives it through the channel of `yield from` statements, precisely as if the future were yielded directly from `fetch`. When the loop resolves a future, the task sends its result into `fetch`, and the value is received by `read`, exactly as if the task were driving `read` directly.
+
+To perfect our coroutine implementation, we try to make things more simple: our code uses `yield` when it waits for a future, but `yield from` when it delegates to a sub-coroutine. It would be more refined if we used `yield from` whenever a coroutine pauses. Then a coroutine need not concern itself with what type of thing it awaits.
+
+Notice: `yield from` can be used to either call `coroutine` or `iterator`.
+
+So we make our Future class iterable by implementing a special method:
+```python
+# Method on Future class.
+def __iter__(self):
+    # Tell Task to resume me here.
+    yield self
+    return self.result
+```
+The future's `__iter__` method is a coroutine that yields the future itself. Now when we replace code like this:
+```python
+# f is a Future.
+yield f
+```
+with this:
+```python
+# f is a Future.
+yield from f
+```
+the outcome is the same. And the whole part of `Crawler()` code will be refactoring like following:
+```python
+class Crawler:
+    def __init__(self, url):
+        self.url = url
+        self.response = b''
+
+    def fetch(self):
+        global stopped
+        sock = socket.socket()
+        yield from connect(sock, ('example.com', 80))
+        get = 'GET {0} HTTP/1.0\r\nHost: example.com\r\n\r\n'.format(self.url)
+        sock.send(get.encode('ascii'))
+        self.response = yield from read_all(sock)
+        urls_todo.remove(self.url)
+        if not urls_todo:
+            stopped = True
+
+```
+and the `connect()` part:
+```python
+def connect(sock, address):
+    f = Future()
+    sock.setblocking(False)
+    try:
+        sock.connect(address)
+    except BlockingIOError:
+        pass
+
+    def on_connected():
+        f.set_result(None)
+
+    selector.register(sock.fileno(), EVENT_WRITE, on_connected)
+    yield from f
+    selector.unregister(sock.fileno())
+```
+At here we have already peered into the machinery of generators, and sketched an implementation of **future** and **tasks** which concepts is include in the `asyncio` libs. And we outlined how asyncio attains the best of both worlds: concurrent I/O that is more efficient than **threads and more legible than callbacks**. Of course, the real `asyncio` libs is much more sophisticated than this sketch. The real framework addresses zero-copy I/O, fair scheduling, exception handling, and an abundance of other features.

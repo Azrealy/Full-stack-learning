@@ -84,15 +84,15 @@ class Crawler:
                 break
 
 class Task:
-    def __init__(self, result):
-        self.result = result
+    def __init__(self, coroutine):
+        self.coroutine = coroutine
         f = Future()
         f.set_result(None)
         self.step(f)
 
     def step(self, future):
         try:
-            next_future = self.result.send(future.result)
+            next_future = self.coroutine.send(future.result)
         except StopIteration:
             return
         next_future.add_done_callback(self.step)
