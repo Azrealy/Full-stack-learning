@@ -417,7 +417,8 @@ Receive: hello
 Receive: world
 """
 ```
-This `coroutine()` is created based by **Generator**, it will suspend at every `yield` point and resuming execution when `send()` method run. 
+This `coroutine()` is created based by **Generator**, it will suspend at every `yield` point and resuming execution when `send()` method run. If you want to learn more about the `coroutine` in the Python you can look this post, ["A Curious Course on
+Coroutines and Concurrency."](http://www.dabeaz.com/coroutines/Coroutines.pdf)
 
 Next, we are going to refactoring the Crawler code.
 
@@ -670,3 +671,17 @@ def connect(sock, address):
     selector.unregister(sock.fileno())
 ```
 At here we have already peered into the machinery of generators, and sketched an implementation of **future** and **tasks** which concepts is include in the `asyncio` libs. And we outlined how asyncio attains the best of both worlds: concurrent I/O that is more efficient than **threads and more legible than callbacks**. Of course, the real `asyncio` libs is much more sophisticated than this sketch. The real framework addresses zero-copy I/O, fair scheduling, exception handling, and an abundance of other features.
+
+# Conclusion
+
+Increasingly often, modern programs are I/O-bound instead of CPU-bound. For such programs, Python threads are the worst of both worlds: the GIL prevents them from actually executing computations in parallel, and preemptive switching makes them prone to races. **Async is often the right pattern**. But as callback-based async code grows, it tends to become a missing readability. Coroutines may become a good solution. They factor naturally into subroutines, with sane exception handling and stack traces.
+
+So far, we have learned with what **asynchronous programming is**, how it develops in Python, And from the sketch to understand the dataflow of `asyncio` libs which combine the `future`, `Task`, `coroutine`, `event loop` modules to handle asynchronous programming. Also we have know use `yield from` to make our asynchronous code more like synchronous pattern.  
+
+Through those concepts learning, for the person who want to much deeper learning `asyncio` build-in library, can look this posts ["A guide to asynchronous programming in Python with asyncio"](https://medium.freecodecamp.org/a-guide-to-asynchronous-programming-in-python-with-asyncio-232e2afa44f6)
+
+# Attached
+
+Reference material.
+
+* [A Web Crawler With asyncio Coroutines](http://www.aosabook.org/en/500L/a-web-crawler-with-asyncio-coroutines.html)
