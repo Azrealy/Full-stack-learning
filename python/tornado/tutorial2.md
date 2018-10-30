@@ -1,16 +1,10 @@
-# Part Two: 
+# Learning `tornado` coroutine mechanism through source code
 
-Though the first part of learning, this part will start looking inside of `tornado` package itself.
+This post will focus on the dataflow and mechanism of `tornado` coroutine through debug from the source code.
 
-1. Though demo codes to understand how the function be decorated by `@gen.coroutine` executed involving from `Future`, `Runner` to `IOLoop`.
+# Example code
 
-# Analysis the `tornado` coroutine
-
-This part will focus on the dataflow of `tornado` coroutine, and try to figure out the internal operation principle of the `tornado` coroutine.
-
-# Dataflow chart
-
-For understanding the operation principle of `tornado` coroutine, I wrote the following example code in the following:
+For understanding the operation principle of `tornado` coroutine, I wrote the following example code:
 ```python
 import random
 import time
@@ -44,7 +38,7 @@ And the output will be like:
 >>> [('URL1', 1), ('URL2', 2), ('URL3', 3)]
 >>> total time: 3.0054771900177 seconds
 ```
-In this example code, I use the `run_sync()` method from `IOLoop` as the entry point for the coroutine, And try to setup a series interrupted point in the source code, to understanding the dataflow in the tornado coroutine.
+In this example code, use the `run_sync()` method from `IOLoop` to run the coroutine, And try to setup a series of interrupted points in the source code and observe the process running, that to understanding the dataflow of the tornado coroutine.
 
 # The `gen.coroutine` decorator
 
@@ -53,7 +47,7 @@ Before we look inside of the `gen.coroutine` source code, we first need to check
    precursor to native coroutines (using ``async def`` and ``await``)
    which were introduced in Python 3.5. 
 
-Which means the `coroutine` pattern in `tornado` can be write use the "native coroutine" or "decorated coroutine" in the Python 3.5. So the example code at above can be written like:
+Which means the `coroutine` pattern in `tornado` can be write use the **"native coroutine" or "decorated coroutine"** in the Python 3.5. So the example code at above can be also written like:
 ```python
 async def get_url(url):
     wait_time = random.randint(1, 4)
@@ -134,76 +128,79 @@ Using the example code to track the data flow, As we use `@gen.coroutine` to dec
 In the `Tornado` the `Future` object is an alias for `asyncio.Future` and a compatible implementation for older versions of Python. That's the reason of why we can transform the coroutine between "Native" and "Decorator". And from the [documentation of Future python libs](https://docs.python.org/3/library/asyncio-future.html#asyncio.Future), the `Future` object include the following methods, at here I just pick up the important methods which can help use to analysis the `tornado` coroutine:
 * `result()` Return the result of the Future.
 ```python
-def result(self, timeout=None):
-    """If the operation succeeded, return its result.  If it failed,
-    re-raise its exception.
-
-    This method takes a ``timeout`` argument for compatibility with
-    `concurrent.futures.Future` but it is an error to call it
-    before the `Future` is done, so the ``timeout`` is never used.
-    """
-    self._clear_tb_log()
-    if self._result is not None:
+    def result(self, timeout=None):
+        """If the operation succeeded, return its result.  If it failed,
+        re-raise its exception.
+    
+        This method takes a ``timeout`` argument for compatibility with
+        `concurrent.futures.Future` but it is an error to call it
+        before the `Future` is done, so the ``timeout`` is never used.
+        """
+        self._clear_tb_log()
+        if self._result is not None:
+            return self._result
+        if self._exc_info is not None:
+            try:
+                raise_exc_info(self._exc_info)
+            finally:
+                self = None
+        self._check_done()
         return self._result
-    if self._exc_info is not None:
-        try:
-            raise_exc_info(self._exc_info)
-        finally:
-            self = None
-    self._check_done()
-    return self._result
 ```
+
 * `set_result()` call the `self._set_done()` method and set its result.
 ```python
-def set_result(self, result):
-    """Sets the result of a ``Future``.
+    def set_result(self, result):
+        """Sets the result of a ``Future``.
+    
+        It is undefined to call any of the ``set`` methods more than once
+        on the same object.
+        """
+        self._result = result
+        # Set `_done` attribute to True, Add the callback to the IOLoop 
+        self._set_done()
 
-    It is undefined to call any of the ``set`` methods more than once
-    on the same object.
-    """
-    self._result = result
-    # Set `_done` attribute to True, Add the callback to the IOLoop 
-    self._set_done()
-
-def _set_done(self):
-    self._done = True
-    if self._callbacks:
-        from tornado.ioloop import IOLoop
-        loop = IOLoop.current()
-        for cb in self._callbacks:
-            loop.add_callback(cb, self)
-        self._callbacks = None
-```
-* `done()` Return True if the Future is done.
-* `add_done_callback(callback, *, context=None)` Add a callback to be run when the Future is done. The callback is called with the Future object as its only argument.
-```python
-def add_done_callback(self, fn):
-    """Attaches the given callback to the `Future`.
-
-    It will be invoked with the `Future` as its argument when the Future
-    has finished running and its result is available.  In Tornado
-    consider using `.IOLoop.add_future` instead of calling
-    `add_done_callback` directly.
-    """
-    if self._done:
-        from tornado.ioloop import IOLoop
-        IOLoop.current().add_callback(fn, self)
-    else:
-        self._callbacks.append(fn)
+    def _set_done(self):
+        self._done = True
+        if self._callbacks:
+            from tornado.ioloop import IOLoop
+            loop = IOLoop.current()
+            for cb in self._callbacks:
+                loop.add_callback(cb, self)
+            self._callbacks = None
 ```
 
-And the `future_set_result_unless_cancelled()` is to set the given `value` as the `Future`'s result, if not cancelled.
+* done() Return True if the Future is done.
+
+* add_done_callback(callback, *, context=None) Add a callback to be run when the Future is done. The callback is called with the Future object as its only argument.
 ```python
-def future_set_result_unless_cancelled(future, value):
-    """Set the given ``value`` as the `Future`'s result, if not cancelled.
+    def add_done_callback(self, fn):
+        """Attaches the given callback to the `Future`.
+    
+        It will be invoked with the `Future` as its argument when the Future
+        has finished running and its result is available.  In Tornado
+        consider using `.IOLoop.add_future` instead of calling
+        `add_done_callback` directly.
+        """
+        if self._done:
+            from tornado.ioloop import IOLoop
+            IOLoop.current().add_callback(fn, self)
+        else:
+            self._callbacks.append(fn)
+```
 
-    Avoids asyncio.InvalidStateError when calling set_result() on
-    a cancelled `asyncio.Future`.
-
-    .. versionadded:: 5.0
-    """
-    if not future.cancelled():
-        future.set_result(value)
+* And the `future_set_result_unless_cancelled()` is to set the given `value` as the `Future`'s result, if not cancelled.
+```python
+    def future_set_result_unless_cancelled(future, value):
+        """Set the given ``value`` as the `Future`'s result, if not cancelled.
+    
+        Avoids asyncio.InvalidStateError when calling set_result() on
+        a cancelled `asyncio.Future`.
+    
+        .. versionadded:: 5.0
+        """
+        if not future.cancelled():
+            future.set_result(value)
 ```
 
 # The entrance of coroutine `run_sync()`
@@ -355,5 +352,10 @@ def handle_yield(self, yielded):
 ```
 In the `handle_yield()` method, if the future not done, it will pass the `inner()` function which include the `run()` to the future. And it will make the `IOLoop` run the `inner()` callback when the `future` be resolve. The `Runner()` will run out the `coroutine` and it will resume to the `gen.coroutine` decorator, and run the `set_result` method of the future, which will resolve the future status to `done` and latest the `stop()` will be called after `IOLoop` execute all of the callback. Which the data flow will be like the following.
 
+![alt text](images/tornado_loop.jpg "Logo Title Text 1")
 
-![alt text](./tornado_loop.jpg "Logo Title Text 1")
+# Attached
+
+Reference material.
+
+* [The tornado documentation.](https://www.tornadoweb.org/en/stable/)

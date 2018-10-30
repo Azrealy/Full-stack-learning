@@ -4,7 +4,7 @@ This tutorial is to introduce some react component pattern which used a lot in o
 
 # React components
 
-In the `React`, you can write a `class` components and `functional` components. (Sometimes the `functional` component also be called as the stateless component) The following code snippet shows a example of `Navigator` component defined as both a class component and a functional component.
+In the `React`, you can write a `class` components and `functional` components. (Sometimes the `functional` component also be called as the stateless component) The following code snippet shows a example of `Navigator` component defined as a `class` component and a `functional` component.
 ```javascript
 import React
 // class component
@@ -21,7 +21,7 @@ class Navigator extends React.Component {
   }
 }
 
-// function component
+// functional component
 const Navigator = ({ version }) => {
   return (
     <header>
@@ -33,10 +33,13 @@ const Navigator = ({ version }) => {
   )
 }
 ```
-Both `functional` component and `class` component can render the DOM, but they the following different use cases.
-* When your React component will have to store the state or need to use a lifecycle hook, you should use the `class` component.
-* Use the ES5 arrow functions to define the `functional` component, the syntax is like very simple, and you can skip use the `return` and `function` keywords by use a pair of curly brackets.
-* No matter which pattern of react component you use, the `import react` statement is required.
+Both `functional` component and `class` component can render the DOM, but the use case of those components are different.
+
+* When your React component will have to store the state or need to use a life-cycle hook, you should use the `class` component. Like you want fetch the data from the API server and render it. Or like login UI which alway need to handle the input state of password and username.
+
+* Use the ES5 arrow functions to define the `functional` component, the syntax will like much simple, and you can skip use the `return` and `function` keywords by use a pair of curly brackets.
+
+* No matter which pattern of react component you used, the `import react` statement is required.
 
 # Pure components
 
@@ -64,12 +67,12 @@ Hello = () => {
   return <h1>Hello</h1>;
 }
 ```
-When you use these two in your Parent Component, you will see `Hello` component will re-render whenever Parent Component will re-render but Welcome Component will not.
+When you use these two in your Parent Component, you will see `Hello` component will re-render whenever Parent Component will re-render but `Welcome` Component will not.
 
-This is because PureComponent changes the life-cycle method `shouldComponentUpdate` and adds some logic to automatically check whether a re-render is required for the component. This allows a `PureComponent` to call method render only if it detects changes in `state` or `props`.
+This is because PureComponent changes the life-cycle method `shouldComponentUpdate()` and adds some logic to automatically check whether a re-render is required for the component. This allows a `PureComponent` to call method render only if it detects changes in `state` or `props`.
 
 The use case of Pure Component:
-* Which is use to avoid the re-rendering the same props or state, like the render **user info** component, the props and state not need often re-rendering when the parent component change the state or props.
+* Which is use to avoid the re-rendering the same props or state, like use case of rendering **user info** component, the props and state not need often re-rendering when the parent component change the state or props.
 
 # Higher-order component (HOC)
 
@@ -181,22 +184,24 @@ function App(props) {
   );
 }
 ```
-HOC has been used in a lot of react libs, like the `connect` HOC in the Redux, `withRouter` HOC in the Router and withStyles HOC in the material-ui. Also which use case is versatile, like you can make a HOC for the JWT authentication, that HOC can be use render the private component of the user. Also there are some considerations of HOC:
+HOC has been used in a lot of react libs, like the `connect` HOC in the Redux, `withRouter` HOC in the Router and `withStyles` HOC in the material-ui. The use case of HOC is versatile, like you can make a HOC to authenticate JWT, then this HOC can be used to render the private component of the user like `UserHomePage` component. Also there are some considerations of HOC:
 * A HOC should be a pure function with no side-effects. It should not make any modifications and just compose the original component by wrapping it in another component.
-* Do not use HOC’s in the render method of a component. Access the HOC outside the component definition.
+* Do not use HOC’s in the **render method of a component**. Access the HOC outside the component definition.
 * Refs are not passed through.
 
 # Presentational and Container Components
 
-The presentational components in our project:
-* Are concerned with how things look.
+The presentational components use case:
+* Are concerned with how things look. Like the styled component.
 * Alway use as the `functional` components, it just focus on the render DOM markup and styles.
 * Don’t specify how the data is loaded or mutated.
 * Take the actions passed from the Container Components.
 * Example: MenuBar, UserInfo, Table
 
-The Container Components:
-* Are concerned with how things work.
-* Use to prepare the fetching data, and store the connection of dispatch and reducer. It don’t have any DOM markup of their own except for some wrapping divs, and never have any styles.
-* Are often stateful, as they tend to serve as data sources.
+The Container Components use case:
+* Are concerned with how things work. Like fetch data to render.
+* It don’t have any DOM markup of their own except for some wrapping divs, and never have any styles.
+* Are often stateful and write as `class` component, they tend to serve as data sources.
+* Provide the data and behavior to presentational or other container components.
+* Are usually generated using higher order components such as `connect()` from React Redux, 
 * Examples: UserPage, FollowersSidebar, StoryContainer.

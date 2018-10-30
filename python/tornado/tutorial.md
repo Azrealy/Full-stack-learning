@@ -31,13 +31,6 @@ Though the first part of learning, this part will start looking inside of `torna
 
 1. Though demo codes to understand how the function be decorated by `@gen.coroutine` executed involving from `Future`, `Runner` to `IOLoop`.
 
-## Part Three: 
-Though some demo codes to introduce some usefull module in `tornado`.
-
-1. Demo code of use `tornado.concurrent`.
-2. Demo code of use `tornado.log`.
-
-
 # What is the asynchronous programming.
 
 Through the following concept, explain what the asynchronous programming is. If you already know what's the actually asynchronous programming is, you can skip this part.
