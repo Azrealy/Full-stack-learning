@@ -352,7 +352,7 @@ def handle_yield(self, yielded):
 ```
 In the `handle_yield()` method, if the future not done, it will pass the `inner()` function which include the `run()` to the future. And it will make the `IOLoop` run the `inner()` callback when the `future` be resolve. The `Runner()` will run out the `coroutine` and it will resume to the `gen.coroutine` decorator, and run the `set_result` method of the future, which will resolve the future status to `done` and latest the `stop()` will be called after `IOLoop` execute all of the callback. Which the data flow will be like the following.
 
-![alt text](images/tornado_loop.jpg "Logo Title Text 1")
+![alt text](../images/tornado_loop.jpg "Logo Title Text 1")
 
 # Attached
 
