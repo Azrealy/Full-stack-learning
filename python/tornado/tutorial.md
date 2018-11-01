@@ -1,35 +1,30 @@
-# Deep understanding python asynchronous programming of `tornado`
+# Python asynchronous programming
 
-Thoroughly understand what, why, and how asynchronous programming is. 
-And learning the basic concept of `tornado` asynchronous programming.
+This article will explain what asynchronous programming is, why we need to use it, and how asynchronous programming has evolved in python.
 
 * `Keywords`: Asynchronous, Non-blocking, concurrency, asyncio, coroutine, event loop, tornado.
 
-# Introduction
+# Table of Content:
 
-This article will include three part of content.
+1. [What is the asynchronous programming](#What-is-the-asynchronous-programming.)
 
-## Part One:
+2. [Why we need to use asynchronous programming](#Why-we-need-use-asynchronous-programming.) 
 
-Before we talking about `tornado`, this part will try to introduce the basic concept of python asynchronous programming you should know. Though this part learning, using those concepts to help us understand how `tornado` working at asynchronous programming.
+3. [The road to asynchronous I/O evolution](#The-road-to-asynchronous-I/O-evolution.)
+    * [Synchronous blocking mode](#Synchronous-blocking-mode)
+    * [Muti-process blocking mode](#improvement-multi-process)
+    * [Multi-threads blocking mode](#improvement-multi-threads)
+    * [Non-blocking mode](#non-blocking-mode)
+    * [Non-blocking improvements](#non-blocking-improvements)
+4. [The road to optimization of asynchronous I/O](#the-road-to-optimization-of-asynchronous-io)
+   * [Coroutine](#coroutine)
+   * [Future](#create-future-object)
+   * [Task](#task-object)
+   * [Event Loop](#the-event-loop)
+ 
+5. [Conclusion](#Conclusion)
+6. [Attached](#attached)
 
-1. Explain what is asynchronous programming is and its closely related concepts such as blocking/non-blocking, synchronous/asynchronous, concurrent/parallel, etc. (Explaining the basic concept which will thorough all of this article.)
-
-2. Why we need to use asynchronous programming. 
-
-3. How to develop from synchronous blocking to asynchronous non-blocking.
-
-4. How does `epoll`, `Callback` and `Event loop` works.
-
-5. How asynchronous programming gradually moves from callbacks to generators to native coroutine.
-
-6. How the lib `asyncio` works in python 3.5.
-
-## Part Two: 
-
-Though the first part of learning, this part will start looking inside of `tornado` package itself.
-
-1. Though demo codes to understand how the function be decorated by `@gen.coroutine` executed involving from `Future`, `Runner` to `IOLoop`.
 
 # What is the asynchronous programming.
 

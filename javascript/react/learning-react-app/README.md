@@ -104,3 +104,103 @@ Every time we re-render, we schedule a different effect, replacing the previous 
 ## Tip: Optimizing Performance by Skipping Effects
 
 In some cases, cleaning up or applying the effect after every render might create a performance problem. In class components, we can solve this by writing an extra comparison wih `prevProps` or `prevState` inside `componentDidUpdate`.
+```javascript
+componentDidUpdate(prevProps, prevState) {
+  if (prevState.count !== this.state.count) {
+    document.title = `You clicked ${this.state.count} times`;
+  }
+}
+```
+This requirement is common enough that it is built into the useEffect Hook API. You can tell React to skip applying an effect if certain values haven’t changed between re-renders. To do so, pass an array as an optional second argument to useEffect:
+```javascript
+useEffect(() => {
+  document.title = `You clicked ${count} times`;
+}, [count]); // Only re-run the effect if count changes
+```
+Tips: You can pass an empty array [] a second argument. This will tell React that you effect doesn't depend on *any* values from props or state.
+
+# Write custom Hooks
+
+Like official doc said, The advantage of the Hooks is that it offer the flexibility of sharing logic that wasn't possible in React components before.
+
+Here I rewrite a todo app where use a custom `useReduce` function.
+```javascript
+function todoReducer(state, action) {
+  switch (action.type) {
+    case 'add':
+      return [...state, {
+        id: state.length + 1,
+        text: action.text,
+        completed: false
+      }];
+    case 'delete':
+      return state.filter(item => 
+        item.id !== action.id
+      )
+    default:
+      return state;
+  }
+}
+```
+This `TodoReducer` function include the some logics where I before use the `Redux` library.
+```javascript
+function useReducer(reduce, initialState) {
+  const [state, setState] = useState(initialState)
+
+  function dispatch(action) {
+    const nextState = reduce(state, action)
+    setState(nextState)
+  }
+
+  return [state, dispatch]
+}
+```
+`useReducer` Hook that lets us manage the localhost state of our component with a reducer. Which is make our logic so simple, what more is that function can be reused at any component where we need to handle local state based on the customer reducer.
+
+Now we could use it in our `Todo` component, and let the reducer drive its state management.
+
+```javascript
+const initialTodos = [
+  {id: 1, text: "hello world", completed: false}
+]
+
+function Todos() {
+  const [todos, dispatch] = useReducer(todoReducer, initialTodos);
+  const [text, setText] = useState("")
+
+  function handleAddClick(text) {
+    dispatch({type: 'add', text })
+    setText("")
+  }
+
+  function onChange(event) {
+    setText(event.target.value)
+  }
+
+  function handleDeleteClick(id) {
+    dispatch({type: 'delete', id})
+  }
+
+  return (
+    <div>
+      <input onChange={(e) => onChange(e)} value={text}/>
+      <button onClick={() => handleAddClick(text)}>
+        add
+      </button>
+      <ul>
+      {todos.map( todo => 
+        <div key={todo.id}>
+          <li>{todo.text} &nbsp;
+          <button onClick={() => handleDeleteClick(todo.id)}>
+            Delete
+          </button>
+          </li>
+        </div>
+      )}
+      </ul>
+    </div>
+  )
+}
+```
+
+

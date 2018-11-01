@@ -122,7 +122,7 @@ function ExampleOfficial() {
     );
     document.title = `You clicked ${count} times`;
     return () => clearInterval(interval)
-  });
+  },[count, isOn]);
 
   return (
     <div>
@@ -145,4 +145,75 @@ function ExampleOfficial() {
   );
 }
 
-export default EffectedButton;
+function todoReducer(state, action) {
+  switch (action.type) {
+    case 'add':
+      return [...state, {
+        id: state.length + 1,
+        text: action.text,
+        completed: false
+      }];
+    case 'delete':
+      return state.filter(item => 
+        item.id !== action.id
+      )
+    default:
+      return state;
+  }
+}
+
+function useReducer(reduce, initialState) {
+  const [state, setState] = useState(initialState)
+
+  function dispatch(action) {
+    const nextState = reduce(state, action)
+    setState(nextState)
+  }
+
+  return [state, dispatch]
+}
+
+const initialTodos = [
+  {id: 1, text: "hello world", completed: false}
+]
+
+function Todos() {
+  const [todos, dispatch] = useReducer(todoReducer, initialTodos);
+  const [text, setText] = useState("")
+
+  function handleAddClick(text) {
+    dispatch({type: 'add', text })
+    setText("")
+  }
+
+  function onChange(event) {
+    setText(event.target.value)
+  }
+
+  function handleDeleteClick(id) {
+    dispatch({type: 'delete', id})
+  }
+
+  return (
+    <div>
+      <input onChange={(e) => onChange(e)} value={text}/>
+      <button onClick={() => handleAddClick(text)}>
+        add
+      </button>
+      <ul>
+      {todos.map( todo => 
+        <div key={todo.id}>
+          <li>{todo.text} &nbsp;
+          <button onClick={() => handleDeleteClick(todo.id)}>
+            Delete
+          </button>
+          </li>
+        </div>
+      )}
+      </ul>
+    </div>
+  )
+}
+
+
+export default Todos;
