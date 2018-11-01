@@ -6,11 +6,11 @@ This article will explain what asynchronous programming is, why we need to use i
 
 # Table of Content:
 
-1. [What is the asynchronous programming](#What-is-the-asynchronous-programming.)
+1. [What is the asynchronous programming](#what-is-the-asynchronous-programming)
 
-2. [Why we need to use asynchronous programming](#Why-we-need-use-asynchronous-programming.) 
+2. [Why we need to use asynchronous programming](#why-we-need-use-asynchronous-programming) 
 
-3. [The road to asynchronous I/O evolution](#The-road-to-asynchronous-I/O-evolution.)
+3. [The road to asynchronous I/O evolution](#the-road-to-asynchronous-io-evolution)
     * [Synchronous blocking mode](#Synchronous-blocking-mode)
     * [Muti-process blocking mode](#improvement-multi-process)
     * [Multi-threads blocking mode](#improvement-multi-threads)
