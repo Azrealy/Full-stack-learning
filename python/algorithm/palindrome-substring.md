@@ -77,7 +77,7 @@ def dp_longest_palindrome(s):
 ```
 Complexity Analysis:
 * Time complexity: $O(n^2)$.
-* Space complexity: $O(n^x)$. Open a $O(n^2)$ table to memorize the sub palindrome.
+* Space complexity: $O(n^2)$. Open a $O(n^2)$ table to memorize the sub palindrome.
 
 # Expand Around Center
 
