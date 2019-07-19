@@ -1,0 +1,12 @@
+Starting var:.. nums = [1, 2]
+10:16:49.434538 call         3 def subset(nums):
+10:16:49.434777 line         4     powerset = []
+New var:....... powerset = []
+10:16:49.434944 line         5     subset=[]
+New var:....... subset = []
+10:16:49.435094 line         6     def backtrack(nums, start=0):
+New var:....... backtrack = <function subset.<locals>.backtrack at 0x7fa4245b89d8>
+10:16:49.435286 line        12     backtrack(nums)
+10:16:49.436074 line        13     return powerset
+10:16:49.436286 return      13     return powerset
+Return value:.. []
