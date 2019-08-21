@@ -19,3 +19,8 @@ Full stack develop learning.
 - Try to use `kubernetes` to deploy service and pod.
 - Use build-in `asycnio` library to write a server framework.
 - Build a personal blog.
+
+# Learning plan of 2019.
+- Leetcode solve 500 problem.
+- Professional on one feild of AI.
+- Professional on the date analysis.
